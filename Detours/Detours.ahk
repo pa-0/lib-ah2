@@ -1,4 +1,12 @@
-﻿DetourTransactionBegin() => DllCall('detours\DetourTransactionBegin')
+﻿/************************************************************************
+ * @description Detours is a software package for monitoring and instrumenting API calls on Windows.
+ * @file Detours.ahk
+ * @author thqby
+ * @date 2021/10/04
+ * @version 0.0.1
+ ***********************************************************************/
+
+DetourTransactionBegin() => DllCall('detours\DetourTransactionBegin')
 DetourTransactionAbort() => DllCall('detours\DetourTransactionAbort')
 DetourTransactionCommit() => DllCall('detours\DetourTransactionCommit')
 DetourTransactionCommitEx(&ppFailedPointer) => DllCall('detours\DetourTransactionCommit', 'ptr*', &ppFailedPointer := 0)

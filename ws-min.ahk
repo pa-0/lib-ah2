@@ -1,31 +1,12 @@
-﻿Persistent()
-socket := wsclient("ws://121.40.165.18:8800", {open: ccc, Message: aaa, Close: bbb})
-; Msgbox socket.url (socket.readyState = 1 ? "已连接" : "已断开")
-OutputDebug('`n1')
-socket.Send('hg')
-Sleep(100)
-OutputDebug('`n2')
-socket.Send('hg')
-aaa(self, event) {
-	OutputDebug('`n' event)
-}
-ccc(self, event) {
-	; MsgBox('open`n' event)
-}
-bbb(self, event) {
-	OutputDebug('`n' event)
-}
-F8:: {
-	socket.Disconnect()
-}
-F9:: {
-	socket.Connect()
-}
-F10:: {
-	socket.send(InputBox().Value)
-}
-class wsclient
-{
+﻿/************************************************************************
+ * @description websocket Implemented By JS
+ * @file ws-min.ahk
+ * @author thqby
+ * @date 2021/10/04
+ * @version 0.0.1
+ ***********************************************************************/
+
+class WebSocket {
 	doc := "", BlockSleep := 50, Timeout := 15000
 
 	; usage1

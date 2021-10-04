@@ -1,9 +1,9 @@
 /************************************************************************
- * @file: ExcelIO.ahk
- * @description: Excel xls,xlsx文件高性能读写库
+ * @file: XL.ahk
+ * @description: High performance library for reading and writing Excel(xls,xlsx) files.
  * @author thqby
- * @date 2021/06/17
- * @version 1.1.27
+ * @date 2021/10/04
+ * @version 1.1.1
  * @documentation https://www.libxl.com/documentation.html
  * @enum var
  * Color {BLACK = 8, WHITE, RED, BRIGHTGREEN, BLUE, YELLOW, PINK, TURQUOISE, DARKRED, GREEN, DARKBLUE, DARKYELLOW, VIOLET, TEAL, GRAY25, GRAY50, PERIWINKLE_CF, PLUM_CF, IVORY_CF, LIGHTTURQUOISE_CF, DARKPURPLE_CF, CORAL_CF, OCEANBLUE_CF, ICEBLUE_CF, DARKBLUE_CL, PINK_CL, YELLOW_CL, TURQUOISE_CL, VIOLET_CL, DARKRED_CL, TEAL_CL, BLUE_CL, SKYBLUE, LIGHTTURQUOISE, LIGHTGREEN, LIGHTYELLOW, PALEBLUE, ROSE, LAVENDER, TAN, LIGHTBLUE, AQUA, LIME, GOLD, LIGHTORANGE, ORANGE, BLUEGRAY, GRAY40, DARKTEAL, SEAGREEN, DARKGREEN, OLIVEGREEN, BROWN, PLUM, INDIGO, GRAY80, DEFAULT_FOREGROUND = 0x40, DEFAULT_BACKGROUND = 0x41, TOOLTIP = 0x51, NONE = 0x7F, AUTO = 0x7FFF}
@@ -32,39 +32,39 @@
  * DataValidationErrorStyle { ERRSTYLE_STOP, ERRSTYLE_WARNING, ERRSTYLE_INFORMATION }
  * CalcModeType { MANUAL, AUTO, AUTONOTABLE }
  ***********************************************************************/
-; #DllLoad 'libxl.dll'
 
-class ExcelIO {
+class XL {
+	static _ := DllCall('LoadLibrary', 'str', A_LineFile '\..\' (A_PtrSize * 8) 'bit\libxl.dll', 'ptr')
 	static Load(path) {
 		if !FileExist(path)
-			throw Error('excel文件不存在')
+			throw Error('Excel file does not exist.')
 		SplitPath(path, , , &ext), handle := 0
 		handle := ext = 'xlsx' ? DllCall('libxl\xlCreateXMLBook', 'cdecl ptr') : DllCall('libxl\xlCreateBook', 'cdecl ptr')
-		book := ExcelIO.IBook(handle)
+		book := XL.IBook(handle)
 		if (book.load(path))
 			return (book.setKey('GCCG', 'windows-282123090cc0e6036db16b60a1o3p0h9'), book)
 		book.release()
-		throw Error('加载失败')
+		throw Error('Failed to load')
 	}
 	static New(ext := 'xlsx') {
-		IO := ExcelIO.IBook(ext = 'xlsx' ? DllCall('libxl\xlCreateXMLBook', 'cdecl ptr') : DllCall('libxl\xlCreateBook', 'cdecl ptr'))
+		IO := XL.IBook(ext = 'xlsx' ? DllCall('libxl\xlCreateXMLBook', 'cdecl ptr') : DllCall('libxl\xlCreateBook', 'cdecl ptr'))
 		return (IO.setKey('GCCG', 'windows-282123090cc0e6036db16b60a1o3p0h9'), IO)
 	}
 	class IBase {
 		ptr := 0, parent := 0
 		__New(handle, parent := 0) => (this.parent := parent, this.ptr := handle)
 	}
-	class IAutoFilter extends ExcelIO.IBase {
+	class IAutoFilter extends XL.IBase {
 		getRef(&rowFirst, &rowLast, &colFirst, &colLast) => DllCall('libxl\xlAutoFilterGetRef', 'ptr', this, 'int*', &rowFirst := 0, 'int*', &rowLast := 0, 'int*', &colFirst := 0, 'int*', &colLast := 0, 'cdecl int')
 		setRef(rowFirst, rowLast, colFirst, colLast) => DllCall('libxl\xlAutoFilterSetRef', 'ptr', this, 'int', rowFirst, 'int', rowLast, 'int', colFirst, 'int', colLast, 'cdecl')
-		column(colId) => ExcelIO.IFilterColumn(DllCall('libxl\xlAutoFilterColumn', 'ptr', this, 'int', colId, 'cdecl ptr'))
+		column(colId) => XL.IFilterColumn(DllCall('libxl\xlAutoFilterColumn', 'ptr', this, 'int', colId, 'cdecl ptr'))
 		columnSize() => DllCall('libxl\xlAutoFilterColumnSize', 'ptr', this, 'cdecl int')
-		columnByIndex(index) => ExcelIO.IFilterColumn(DllCall('libxl\xlAutoFilterColumnByIndex', 'ptr', this, 'int', index, 'cdecl ptr'))
+		columnByIndex(index) => XL.IFilterColumn(DllCall('libxl\xlAutoFilterColumnByIndex', 'ptr', this, 'int', index, 'cdecl ptr'))
 		getSortRange(&rowFirst, &rowLast, &colFirst, &colLast) => DllCall('libxl\xlAutoFilterGetSortRange', 'ptr', this, 'int*', &rowFirst := 0, 'int*', &rowLast := 0, 'int*', &colFirst := 0, 'int*', &colLast := 0, 'cdecl int')
 		getSort(&columnIndex, &descending) => DllCall('libxl\xlAutoFilterGetSort', 'ptr', this, 'int*', &columnIndex := 0, 'int*', &descending := 0, 'cdecl int')
 		setSort(columnIndex, descending := false) => DllCall('libxl\xlAutoFilterSetSort', 'ptr', this, 'int', columnIndex, 'int', descending, 'cdecl int')
 	}
-	class IBook extends ExcelIO.IBase {
+	class IBook extends XL.IBase {
 		path := ''
 		active => this.getSheet(this.activeSheet())
 		__Item[it] {
@@ -72,24 +72,24 @@ class ExcelIO {
 				count := this.sheetCount()
 				if IsNumber(it) {
 					if (it < 0 && it >= count)
-						throw Error('无效的index')
+						throw Error('Invalid index')
 					return this.getSheet(it)
 				}
 				Loop count
 					if (this.getSheetName(A_Index - 1) = it)
 						return this.getSheet(A_Index - 1)
-				throw Error('表' it '不存在')
+				throw Error('table ' it ' does not exist')
 			}
 		}
 		activeSheet() => DllCall('libxl\xlBookActiveSheet', 'ptr', this, 'cdecl int')
 		addCustomNumFormat(customNumFormat) => DllCall('libxl\xlBookAddCustomNumFormat', 'ptr', this, 'str', customNumFormat, 'cdecl int')
-		addFont(initFont := 0) => ExcelIO.IFont(DllCall('libxl\xlRichStringAddFont', 'ptr', this, 'ptr', initFont, 'cdecl ptr'))
-		addFormat(initFormat := 0) => ExcelIO.IFormat(DllCall('libxl\xlBookAddFormat', 'ptr', this, 'ptr', initFormat, 'cdecl ptr'))
+		addFont(initFont := 0) => XL.IFont(DllCall('libxl\xlRichStringAddFont', 'ptr', this, 'ptr', initFont, 'cdecl ptr'))
+		addFormat(initFormat := 0) => XL.IFormat(DllCall('libxl\xlBookAddFormat', 'ptr', this, 'ptr', initFormat, 'cdecl ptr'))
 		addPicture(filename) => DllCall('libxl\xlBookAddPicture', 'ptr', this, 'str', filename, 'cdecl int')
 		addPicture2(data, size) => DllCall('libxl\xlBookAddPicture2', 'ptr', this, 'ptr', data, 'uint', size, 'cdecl int')
 		addPictureAsLink(filename, insert := false) => DllCall('libxl\xlBookAddPictureAsLink', 'ptr', this, 'str', filename, 'int', insert, 'cdecl int')
-		addRichString() => ExcelIO.IRichString(DllCall('libxl\xlBookAddRichString', 'ptr', this, 'cdecl ptr'))
-		addSheet(name, initSheet := 0) => ExcelIO.ISheet(DllCall('libxl\xlBookAddSheet', 'ptr', this, 'str', name, 'ptr', initSheet, 'cdecl ptr'), this)
+		addRichString() => XL.IRichString(DllCall('libxl\xlBookAddRichString', 'ptr', this, 'cdecl ptr'))
+		addSheet(name, initSheet := 0) => XL.ISheet(DllCall('libxl\xlBookAddSheet', 'ptr', this, 'str', name, 'ptr', initSheet, 'cdecl ptr'), this)
 		biffVersion() => DllCall('libxl\xlBookBiffVersion', 'ptr', this, 'cdecl int')
 		calcMode() => DllCall('libxl\xlBookCalcMode', 'ptr', this, 'cdecl int')
 		colorPack(red, green, blue) => DllCall('libxl\xlBookColorPack', 'ptr', this, 'int', red, 'int', green, 'int', blue, 'cdecl int')
@@ -100,14 +100,14 @@ class ExcelIO {
 		defaultFont(&fontSize) => DllCall('libxl\xlBookDefaultFont', 'ptr', this, 'int*', &fontSize := 0, 'cdecl str')
 		delSheet(index) => DllCall('libxl\xlBookDelSheet', 'ptr', this, 'int', index, 'cdecl int')
 		errorMessage() => DllCall('libxl\xlBookErrorMessage', 'ptr', this, 'cdecl astr')
-		font(index) => ExcelIO.IFont(DllCall('libxl\xlBookFont', 'ptr', this, 'int', index, 'cdecl ptr'))
+		font(index) => XL.IFont(DllCall('libxl\xlBookFont', 'ptr', this, 'int', index, 'cdecl ptr'))
 		fontSize() => DllCall('libxl\xlBookFontSize', 'ptr', this, 'cdecl int')
-		format(index) => ExcelIO.IFormat(DllCall('libxl\xlBookFormat', 'ptr', this, 'int', index, 'cdecl ptr'))
+		format(index) => XL.IFormat(DllCall('libxl\xlBookFormat', 'ptr', this, 'int', index, 'cdecl ptr'))
 		formatSize() => DllCall('libxl\xlBookFormatSize', 'ptr', this, 'cdecl int')
 		getPicture(index, &data, &size) => DllCall('libxl\xlBookGetPicture', 'ptr', this, 'int', index, 'ptr*', &data := 0, 'uint*', &size := 0, 'cdecl int')
-		getSheet(index) => ExcelIO.ISheet(DllCall('libxl\xlBookGetSheet', 'ptr', this, 'int', index, 'cdecl ptr'), this)
+		getSheet(index) => XL.ISheet(DllCall('libxl\xlBookGetSheet', 'ptr', this, 'int', index, 'cdecl ptr'), this)
 		getSheetName(index) => DllCall('libxl\xlBookGetSheetName', 'ptr', this, 'int', index, 'cdecl str')
-		insertSheet(index, name, initSheet := 0) => ExcelIO.ISheet(DllCall('libxl\xlBookInsertSheet', 'ptr', this, 'int', index, 'str', name, 'ptr', initSheet, 'cdecl ptr'), this)
+		insertSheet(index, name, initSheet := 0) => XL.ISheet(DllCall('libxl\xlBookInsertSheet', 'ptr', this, 'int', index, 'str', name, 'ptr', initSheet, 'cdecl ptr'), this)
 		isDate1904() => DllCall('libxl\xlBookIsDate1904', 'ptr', this, 'cdecl int')
 		isTemplate() => DllCall('libxl\xlBookIsTemplate', 'ptr', this, 'cdecl int')
 		load(filename, tempFile := '') => (this.path := filename, tempFile ? DllCall('libxl\xlBookLoadUsingTempFile', 'ptr', this, 'str', filename, 'str', tempFile, 'cdecl int') : DllCall('libxl\xlBookLoad', 'ptr', this, 'str', filename, 'cdecl int'))
@@ -141,7 +141,7 @@ class ExcelIO {
 		version() => DllCall('libxl\xlBookVersion', 'ptr', this, 'cdecl int')
 		__Delete() => this.release()
 	}
-	class IFilterColumn extends ExcelIO.IBase {
+	class IFilterColumn extends XL.IBase {
 		index() => DllCall('libxl\xlFilterColumnIndex', 'ptr', this, 'cdecl int')
 		filterType() => DllCall('libxl\xlFilterColumnFilterType', 'ptr', this, 'cdecl int')
 		filterSize() => DllCall('libxl\xlFilterColumnFilterSize', 'ptr', this, 'cdecl int')
@@ -153,7 +153,7 @@ class ExcelIO {
 		setCustomFilter(op1, v1, op2 := 0, v2 := '', andOp := false) => DllCall('libxl\xlFilterColumnSetCustomFilterEx', 'ptr', this, 'int', op1, 'str', v1, 'int', op2, 'str', v2, 'int', andOp, 'cdecl')
 		clear() => DllCall('libxl\xlFilterColumnClear', 'ptr', this, 'cdecl')
 	}
-	class IFont extends ExcelIO.IBase {
+	class IFont extends XL.IBase {
 		size() => DllCall('libxl\xlFontSize', 'ptr', this, 'cdecl int')
 		setSize(size) => DllCall('libxl\xlFontSetSize', 'ptr', this, 'int', size, 'cdecl')
 		italic() => DllCall('libxl\xlFontItalic', 'ptr', this, 'cdecl int')
@@ -171,8 +171,8 @@ class ExcelIO {
 		name() => DllCall('libxl\xlFontName', 'ptr', this, 'cdecl str')
 		setName(name) => DllCall('libxl\xlFontSetName', 'ptr', this, 'str', name, 'cdecl')
 	}
-	class IFormat extends ExcelIO.IBase {
-		font() => ExcelIO.IFont(DllCall('libxl\xlFormatFont', 'ptr', this, 'cdecl ptr'))
+	class IFormat extends XL.IBase {
+		font() => XL.IFont(DllCall('libxl\xlFormatFont', 'ptr', this, 'cdecl ptr'))
 		setFont(font) => DllCall('libxl\xlFormatSetFont', 'ptr', this, 'ptr', font, 'cdecl int')
 		numFormat() => DllCall('libxl\xlFormatNumFormat', 'ptr', this, 'cdecl int')
 		setNumFormat(numFormat) => DllCall('libxl\xlFormatSetNumFormat', 'ptr', this, 'int', numFormat, 'cdecl')
@@ -223,57 +223,57 @@ class ExcelIO {
 		hidden() => DllCall('libxl\xlFormatHidden', 'ptr', this, 'cdecl int')
 		setHidden(hidden := true) => DllCall('libxl\xlFormatSetHidden', 'ptr', this, 'int', hidden, 'cdecl')
 	}
-	class IRichString extends ExcelIO.IBase {
-		addFont(initFont := 0) => ExcelIO.IFont(DllCall('libxl\xlRichStringAddFont', 'ptr', this, 'ptr', initFont, 'cdecl ptr'))
+	class IRichString extends XL.IBase {
+		addFont(initFont := 0) => XL.IFont(DllCall('libxl\xlRichStringAddFont', 'ptr', this, 'ptr', initFont, 'cdecl ptr'))
 		addText(text, font := 0) => DllCall('libxl\xlRichStringAddText', 'ptr', this, 'str', text, 'ptr', font, 'cdecl')
 		getText(index, &font := 0) => DllCall('libxl\xlRichStringGetText', 'ptr', this, 'int', index, 'ptr*', &font := 0, 'cdecl str')
 		textSize() => DllCall('libxl\xlRichStringTextSize', 'ptr', this, 'cdecl int')
 	}
-	class ISheet extends ExcelIO.IBase {
+	class ISheet extends XL.IBase {
 		cellType(row, col) => DllCall('libxl\xlSheetCellType', 'ptr', this, 'int', row, 'int', col, 'cdecl int')
 		isFormula(row, col) => DllCall('libxl\xlSheetIsFormula', 'ptr', this, 'int', row, 'int', col, 'cdecl int')
-		cellFormat(row, col) => ExcelIO.IFormat(DllCall('libxl\xlSheetCellFormat', 'ptr', this, 'int', row, 'int', col, 'cdecl ptr'))
+		cellFormat(row, col) => XL.IFormat(DllCall('libxl\xlSheetCellFormat', 'ptr', this, 'int', row, 'int', col, 'cdecl ptr'))
 		setCellFormat(row, col, format) => DllCall('libxl\xlSheetSetCellFormat', 'ptr', this, 'int', row, 'int', col, 'ptr', format, 'cdecl')
 		readStr(row, col, &format := 0) {
 			ret := DllCall('libxl\xlSheetReadStr', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl str')
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeStr(row, col, value, format := 0) => DllCall('libxl\xlSheetWriteStr', 'ptr', this, 'int', row, 'int', col, 'str', value, 'ptr', format, 'cdecl int')
 		readRichStr(row, col, &format := 0) {
-			ret := ExcelIO.IRichString(DllCall('libxl\xlSheetReadRichStr', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl ptr'))
+			ret := XL.IRichString(DllCall('libxl\xlSheetReadRichStr', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl ptr'))
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeRichStr(row, col, richString, format := 0) => DllCall('libxl\xlSheetWriteRichStr', 'ptr', this, 'int', row, 'int', col, 'ptr', richString, 'ptr', format, 'cdecl int')
 		readNum(row, col, &format := 0) {
 			ret := DllCall('libxl\xlSheetReadNum', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl double')
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeNum(row, col, value, format := 0) => DllCall('libxl\xlSheetWriteNum', 'ptr', this, 'int', row, 'int', col, 'double', value, 'ptr', format, 'cdecl int')
 		readBool(row, col, &format := 0) {
 			ret := DllCall('libxl\xlSheetReadBool', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl int')
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeBool(row, col, value, format := 0) => DllCall('libxl\xlSheetWriteBool', 'ptr', this, 'int', row, 'int', col, 'int', value, 'ptr', format, 'cdecl int')
 		readBlank(row, col, &format := 0) {
 			ret := DllCall('libxl\xlSheetReadBlank', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl int')
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeBlank(row, col, format) => DllCall('libxl\xlSheetWriteBlank', 'ptr', this, 'int', row, 'int', col, 'ptr', format, 'cdecl int')
 		readFormula(row, col, &format := unset) {
 			ret := DllCall('libxl\xlSheetReadFormula', 'ptr', this, 'int', row, 'int', col, 'ptr*', &format := 0, 'cdecl str')
 			if (!format)
 				throw Error(this.parent.errorMessage())
-			return (format := ExcelIO.IFormat(format), ret)
+			return (format := XL.IFormat(format), ret)
 		}
 		writeFormula(row, col, expr, format := 0) => DllCall('libxl\xlSheetWriteFormula', 'ptr', this, 'int', row, 'int', col, 'str', expr, 'ptr', format, 'cdecl int')
 		writeFormulaNum(row, col, expr, value, format := 0) => DllCall('libxl\xlSheetWriteFormulaNum', 'ptr', this, 'int', row, 'int', col, 'str', expr, 'double', value, 'ptr', format, 'cdecl int')
@@ -393,7 +393,7 @@ class ExcelIO {
 		hyperlink(index, &rowFirst, &rowLast, &colFirst, &colLast) => DllCall('libxl\xlSheetHyperlink', 'ptr', this, 'int', index, 'int*', &rowFirst := 0, 'int*', &rowLast := 0, 'int*', &colFirst := 0, 'int*', &colLast := 0, 'cdecl str')
 		delHyperlink(index) => DllCall('libxl\xlSheetDelHyperlink', 'ptr', this, 'int', index, 'cdecl int')
 		addHyperlink(hyperlink, rowFirst, rowLast, colFirst, colLast) => DllCall('libxl\xlSheetAddHyperlink', 'ptr', this, 'str', hyperlink, 'int', rowFirst, 'int', rowLast, 'int', colFirst, 'int', colLast, 'cdecl')
-		autoFilter() => ExcelIO.IAutoFilter(DllCall('libxl\xlSheetAutoFilter', 'ptr', this, 'cdecl ptr'))
+		autoFilter() => XL.IAutoFilter(DllCall('libxl\xlSheetAutoFilter', 'ptr', this, 'cdecl ptr'))
 		applyFilter() => DllCall('libxl\xlSheetApplyFilter', 'ptr', this, 'cdecl')
 		removeFilter() => DllCall('libxl\xlSheetRemoveFilter', 'ptr', this, 'cdecl')
 		name() => DllCall('libxl\xlSheetName', 'ptr', this, 'cdecl str')
@@ -419,7 +419,7 @@ class ExcelIO {
 		removeDataValidations() => DllCall('libxl\xlSheetRemoveDataValidations', 'ptr', this, 'cdecl')
 		__Delete() => (this.parent := '')
 		__Item[row, col := ''] {
-			get => (IsNumber(row) ? '' : this.addrToRowCol(row, &row, &col), ExcelIO.ISheet.ICell(row, col, this))
+			get => (IsNumber(row) ? '' : this.addrToRowCol(row, &row, &col), XL.ISheet.ICell(row, col, this))
 			set {
 				if (ret := format := 0, bool := formula := '', !IsNumber(row))
 					this.addrToRowCol(row, &row, &col)
@@ -457,10 +457,10 @@ class ExcelIO {
 					ret := this.writeStr(row, col, value, format)
 				case 'Integer', 'Float':
 					ret := this.writeNum(row, col, value, format)
-				case 'ExcelIO.IRichString':
+				case 'XL.IRichString':
 					ret := this.writeRichStr(row, col, value, format)
 				default:
-					throw Error('参数类型错误')
+					throw Error('Wrong parameter type')
 				}
 				if (!ret && (msg := this.parent.errorMessage()) != 'ok')
 					throw Error(msg)
@@ -469,7 +469,7 @@ class ExcelIO {
 		class ICell {
 			__New(row, col, parent) {
 				if (parent.cellType(row, col) = 0)
-					throw Error('单元格不存在', -1)
+					throw Error('Cell does not exist', -1)
 				this.row := row, this.col := col, this.parent := parent
 			}
 			content {

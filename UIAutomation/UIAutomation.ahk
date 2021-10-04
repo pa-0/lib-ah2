@@ -2,8 +2,8 @@
  * @description UI Automation class wrapper, based on https://github.com/neptercn/UIAutomation/blob/master/UIA2.ahk
  * @file UIAutomation.ahk
  * @author thqby, neptercn(v1 version)
- * @date 2021/09/27
- * @version 1.0.7
+ * @date 2021/10/01
+ * @version 1.0.14
  ***********************************************************************/
 
 ; BSTR wrapper, convert BSTR to AHK string and free it
@@ -372,6 +372,11 @@ class UIA {
 				else
 					k := UIA.Property.%k%
 				if (k >= 30000) {
+					switch k {
+						case 30003:
+							if !(v is Integer)
+								try v := UIA.ControlType.%v%
+					}
 					t := flags ? UIA.CreatePropertyConditionEx(k, v, flags) : UIA.CreatePropertyCondition(k, v)
 					arr[i++] := t[]
 				} else
@@ -706,21 +711,44 @@ class IUIAutomationElement extends IUIABase {
 	/**
 	 * Find or wait target control element.
 	 * @param ControlType target control type, such as 'button' or UIA.ControlType.Button
-	 * @param val The property value. 
+	 * @param propertys The property object or 'Name' property. 
 	 * @param propertyId The property identifier. `Name`(default)
 	 * @param waittime Waiting time for control element to appear.
 	 */
-	FindControl(ControlType, val, propertyId := "Name", waittime := 0) {
-		if !IsNumber(ControlType)
-			try ControlType := UIA.ControlType.%ControlType%
+	FindControl(ControlID, propertys := unset, waittime := 0) {
+		index := 1
+		if !IsNumber(ControlID) {
+			if RegExMatch(ControlID, "i)^([a-z]+)(\d+)$", &m)
+				index := Integer(m[2]), ControlID := m[1]
+			try ControlID := UIA.ControlType.%ControlID%
 			catch
 				throw ValueError("ControlType invalid")
-		cond := UIA.PropertyCondition({ControlType: ControlType, %propertyId%: val})
+		}
+		if (!IsSet(propertys))
+			propertys := {}
+		switch Type(propertys) {
+			case "String":
+				propertys := {Name: propertys}
+			case "Array":
+				propertys := {0: propertys}
+			case "Object":
+			default:
+				throw ValueError("invalid param")
+		}
+		propertys.ControlType := ControlID
+		cond := UIA.PropertyCondition(propertys)
 		endtime := A_TickCount + waittime
 		loop {
-			try
-				return this.FindFirst(cond)
-			catch TargetError {
+			try {
+				if (index = 1)
+					return this.FindFirst(cond)
+				else {
+					eles := this.FindAll(cond)
+					if (index <= eles.Length)
+						return eles.GetElement(index)
+					throw TargetError("Target element not found.")
+				}
+			} catch TargetError {
 				if (A_TickCount > endtime)
 					return
 			}
@@ -740,6 +768,23 @@ class IUIAutomationElement extends IUIABase {
 			infos.%k% := v
 		}
 		return infos
+	}
+
+	GetControlID() {
+		cond := UIA.CreatePropertyCondition(UIA.Property.ControlType, controltype := this.GetCurrentPropertyValue(UIA.Property.ControlType))
+		runtimeid := IUIA_RuntimeIdToString(this.GetRuntimeId())
+		runtimeid := RegExReplace(runtimeid, "^(\w+\.\w+)\..*$", "$1")
+		rootele := UIA.GetRootElement().FindFirst(UIA.CreatePropertyCondition(UIA.Property.RuntimeId, IUIA_RuntimeIdFromString(runtimeid)))
+		eles := rootele.FindAll(cond)
+		for i in UIA.ControlType
+			if (UIA.ControlType.%i% == controltype) {
+				controltype := i
+				break
+			}
+		loop eles.Length {
+			if (UIA.CompareElements(this, eles.GetElement(A_Index - 1)))
+				return controltype A_Index
+		}
 	}
 
 	; Sets the keyboard focus to this UI Automation element.
