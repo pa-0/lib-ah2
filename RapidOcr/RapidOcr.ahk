@@ -110,7 +110,7 @@ class RapidOcr {
 			get => NumGet(this, 0, 'int')
 			set => NumPut('int', Value, this, 0)
 		}
-		; default: 1024
+		; default: 0
 		maxSideLen {
 			get => NumGet(this, 4, 'int')
 			set => NumPut('int', Value, this, 4)
